@@ -39,41 +39,70 @@ part 4 - Display/User Input
  display a message: Person # is <name>  with a birthday of <date>.
 """
 
+import argparse
 import datetime
 import logging
 import pprint
 import urllib.request
 
-LOG_FILENAME = 'assignment2.log'
-logging.basicConfig(filename=LOG_FILENAME, level=logging.ERROR)
+logging.basicConfig(filename='error.log', level=logging.ERROR)
+assignment2 = logging.getLogger()
 
 
+# Reads and downloads data from url
 def downloadData(url):
     return urllib.request.urlopen(url).readlines()
 
-#row needs to be
-def processData(contents):
+
+# Reads Data line by line, creates birthday datetime objects and returns a dictionary.
+def processData(data):
     line_number = 0
-    file = downloadData(contents)
-    persons = {'person_id': ('name', 'birthday')}
-    for line in file:
-        line_number += 1
-        line = str(line)
-        line = line.lstrip('b\'').rstrip('\\n\'')
-        line = line.split(',')
-        persons['person_id'], persons['name'], persons['birthday'] = line[0], line[1], line[2]
-        try:
-           persons['birthday'] = datetime.datetime.strptime(persons['birthday']+' 00:00:00','%m/%d/%Y %H:%M:%S')
-        except ValueError:
-            error_message ="Error processing line #{} for ID #{}.".format(line_number, persons['person_id'])
+    persons = {}
+    for line in data:
+       line_number += 1
+       line = str(line)
+       line = line.lstrip('b\'').rstrip('\\n\'')
+       line = line.split(',')
+       try:
+           person_id, name = line[0], line[1]
+           birthday = datetime.datetime.strptime(line[2], "%d/%m/%Y")
+           persons[person_id] = (name, birthday)
+       except ValueError:
+            error_message ="Error processing line #{} for ID #{}.".format(line_number, person_id)
             logging.error(error_message)
             pp = pprint.PrettyPrinter(indent=4)
             pp.pprint(error_message)
+            continue
+       return persons
 
 
 def displayPerson(id, personData):
-    pass
+    found = 0
+    for key,values in personData:
+        if int(key) == id:
+            print("Person #{} is {} with a birthday of {}.".format(personData['person_id'], personData['birthday']))
+            found = 1
+    if found == 0:
+            print("No user found with that id.")
+
+
+def main():
+    csvData = ''
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--url', required=True, help='Provide URL of csv file.')
+    args = parser.parse_args()
+    try:
+        csvData = downloadData(args.url)
+    except Exception as e:
+        print('Error: ', str(e))
+    personData = processData(csvData)
+    while True:
+        choice = int(input('Enter ID to lookup: '))
+        if choice == 0 or choice < 0:
+            break
+        else:
+            displayPerson(choice, personData)
+
 
 if __name__ == '__main__':
-    blah='https://s3.amazonaws.com/cuny-is211-spring2015/birthdays100.csv'
-    processData(blah)
+    main()
